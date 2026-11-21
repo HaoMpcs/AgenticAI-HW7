@@ -1,0 +1,9 @@
+id: g09
+kind: single
+issues: [4604]
+stratum: unusual
+decision: act
+expect: {comment: {label: question, file: none}, labels: [question], pr: none}
+source: "4604's resolution: identical date, amount and description are duplicates by design; no code change."
+runs: [direct-issue-4604-s01-0f6301, agent-issue-4604-s01-bab837]
+reference: {calls: 5, tools: [issues_read, code_search, code_read_file, issues_label, issues_comment]}

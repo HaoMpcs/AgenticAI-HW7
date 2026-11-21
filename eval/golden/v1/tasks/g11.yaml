@@ -1,0 +1,9 @@
+id: g11
+kind: single
+issues: [4617]
+stratum: unusual
+decision: act
+expect: {comment: {label: question, file: none}, labels: [question], pr: none}
+source: "The issue and rollup code show the summary spans all user accounts while the report names one account."
+runs: [planned-issue-4617-s01-8f9c48]
+reference: {calls: 6, tools: [issues_read, code_search, code_read_file, issues_label, issues_comment]}

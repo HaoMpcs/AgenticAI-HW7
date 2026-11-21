@@ -1,0 +1,9 @@
+id: g24
+kind: single
+issues: [4628]
+stratum: should_not_act
+decision: stop
+expect: {comment: null, labels: [], pr: none}
+source: "4628 is a maintainer's template test that explicitly says to ignore it."
+runs: [agent-issue-4628-s01-f4f549]
+reference: {calls: 1, tools: [issues_read]}

@@ -1,0 +1,9 @@
+id: g13
+kind: single
+issues: [4627]
+stratum: unusual
+decision: act
+expect: {comment: {label: question, file: none}, labels: [question], pr: none}
+source: "4627's resolution: the page intentionally previews 50 rows and the export contains the full set."
+runs: [planned-issue-4627-s01-ef18f3]
+reference: {calls: 6, tools: [issues_read, code_search, code_read_file, issues_label, issues_comment]}

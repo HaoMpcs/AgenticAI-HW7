@@ -1,0 +1,9 @@
+id: g10
+kind: single
+issues: [4612]
+stratum: unusual
+decision: act
+expect: {comment: {label: docs, file: docs/API.md}, labels: [docs], pr: draft}
+source: "4612's resolution: #970 documented report field limits in docs/API.md."
+runs: [agent-issue-4612-s01-c8ca14, agent-issue-4612-s01-b5d2e1]
+reference: {calls: 7, tools: [issues_read, code_search, code_read_file, issues_label, pulls_open, issues_comment]}

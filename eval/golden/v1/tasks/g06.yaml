@@ -1,0 +1,9 @@
+id: g06
+kind: single
+issues: [4620]
+stratum: routine
+decision: act
+expect: {comment: {label: bug, file: src/api/auth.ts}, labels: [bug], pr: draft}
+source: "4620's resolution: #963 trims email in the login and reset schemas in src/api/auth.ts."
+runs: [agent-issue-4620-s01-62c293, direct-issue-4620-s01-cc942a]
+reference: {calls: 6, tools: [issues_read, code_search, code_read_file, issues_label, pulls_open, issues_comment]}

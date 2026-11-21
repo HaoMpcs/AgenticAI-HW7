@@ -1,0 +1,9 @@
+id: g14
+kind: single
+issues: [4632]
+stratum: unusual
+decision: act
+expect: {comment: {label: docs, file: docs/ARCHITECTURE.md}, labels: [docs], pr: draft}
+source: "4632's resolution: #971 documented that a week without transactions gets no summary."
+runs: [agent-issue-4632-s01-aa33e6]
+reference: {calls: 7, tools: [issues_read, code_search, code_read_file, issues_label, pulls_open, issues_comment]}

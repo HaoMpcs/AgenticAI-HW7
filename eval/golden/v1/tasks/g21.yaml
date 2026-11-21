@@ -1,0 +1,9 @@
+id: g21
+kind: single
+issues: [4607]
+stratum: should_not_act
+decision: stop
+expect: {comment: null, labels: [], pr: none}
+source: "The issue is unrelated promotional spam and requires no RepoMind triage action."
+runs: [workflow-issue-4607-s01-4919f5, planned-issue-4607-s01-b4f4d0]
+reference: {calls: 1, tools: [issues_read]}

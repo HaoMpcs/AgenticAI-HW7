@@ -1,0 +1,9 @@
+id: g12
+kind: single
+issues: [4619]
+stratum: unusual
+decision: act
+expect: {comment: {label: feature, file: src/util/pagination.ts}, labels: [feature], pr: draft}
+source: "4619's resolution: #978 added pageCount to responses built in src/util/pagination.ts."
+runs: [planned-issue-4619-s01-b076e6]
+reference: {calls: 6, tools: [issues_read, code_search, code_read_file, issues_label, pulls_open, issues_comment]}

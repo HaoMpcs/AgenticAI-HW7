@@ -1,0 +1,9 @@
+id: g04
+kind: single
+issues: [4610]
+stratum: routine
+decision: act
+expect: {comment: {label: bug, file: src/api/reports.ts}, labels: [bug], pr: draft}
+source: "4610's resolution: #964 added real calendar-date validation in src/api/reports.ts."
+runs: [agent-issue-4610-s01-61a545, agent-issue-4610-s01-cbaa5f]
+reference: {calls: 6, tools: [issues_read, code_search, code_read_file, issues_label, pulls_open, issues_comment]}
