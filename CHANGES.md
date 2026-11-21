@@ -32,3 +32,8 @@ Removals are logged like additions.
 - **Added:** nothing
 - **Removed:** nothing
 - **Constrained:** multi-agent decomposition, measured against one agent at the same budget and not merged; RepoMind stays one agent
+
+## Assignment 7
+- **Added:** a versioned golden set, grounded end-state grader, repeated-run evaluation harness, trajectory metrics, and a calibrated evidence judge
+- **Removed:** single-run claims
+- **Constrained:** every later claim to a run count, a spread, matched tasks, group results, cost, and a bar fixed before the final runs
