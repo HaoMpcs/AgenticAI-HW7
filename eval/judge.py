@@ -26,6 +26,9 @@ from __future__ import annotations
 
 import json  # noqa: F401
 import random
+import argparse
+import re
+import yaml
 from pathlib import Path
 
 from harness import ROOT
@@ -95,7 +98,81 @@ def load_outputs(root: Path = ROOT) -> dict[str, dict]:
 
 
 def main(argv=None) -> int:
-    raise NotImplementedError("Part D, task 4")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("command", choices=["test", "versions", "recorded"])
+    parser.add_argument("run", nargs="?", type=int, choices=[1, 2, 3])
+    parser.add_argument("--backend")
+    args = parser.parse_args(argv)
+    if args.command == "test" and args.run is None:
+        parser.error("test requires run 1, 2 or 3")
+
+    prompt = PROMPT.read_text()
+    VERDICTS.mkdir(parents=True, exist_ok=True)
+    if args.command in {"test", "versions"}:
+        split = yaml.safe_load((ROOT / "eval" / "labels" / "split.yaml").read_text())
+        outputs = load_outputs()
+        items = []
+        for item in split["test"]:
+            if args.command == "test":
+                items.append((item, None, outputs[item], outputs[item]["comment"]))
+            else:
+                for version in ("list", "long"):
+                    items.append((item, version, outputs[item], outputs[item]["versions"][version]))
+        name = f"test-{args.run}" if args.command == "test" else "versions"
+        destination = VERDICTS / (f"test_{args.run}.jsonl" if args.command == "test" else "versions.jsonl")
+    else:
+        items = _recorded_items()
+        name, destination = "recorded", VERDICTS / "recorded.jsonl"
+
+    rows = []
+    with judge_session(name, backend=args.backend) as session:
+        for item, version, evidence, comment in items:
+            payload = {"issue": evidence["issue"], "evidence": evidence["evidence"], "comment": comment}
+            response = session.client.create(system=prompt, messages=[{
+                "role": "user", "content": json.dumps(payload, ensure_ascii=False)
+            }])
+            session.trace.model_call(0, response, purpose="judge")
+            answer, reasoning = _parse(response.text)
+            row = {"id": item, "answer": answer, "reasoning": reasoning,
+                   "session": session.id, "model": response.model}
+            if version:
+                row["version"] = version
+            rows.append(row)
+    destination.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows))
+    print(f"wrote {len(rows)} verdicts to {destination.relative_to(ROOT)}")
+    return 0
+
+
+def _parse(text: str) -> tuple[str, str]:
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        raise ValueError(f"judge did not return JSON: {text[:200]!r}")
+    data = json.loads(match.group(0))
+    answer = str(data.get("answer", "")).strip().lower()
+    reasoning = " ".join(str(data.get("reasoning", "")).split())
+    if answer not in {"pass", "fail"} or not reasoning:
+        raise ValueError(f"bad judge verdict: {data!r}")
+    return answer, reasoning
+
+
+def _recorded_items() -> list[tuple[str, None, dict, str]]:
+    items = []
+    for path in sorted((ROOT / "fixtures" / "traces7").glob("agent-*.jsonl")):
+        lines = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+        calls = [line for line in lines if line.get("type") == "tool_call"]
+        comments = [call for call in calls if call.get("name") in {"post_comment", "issues_comment"}]
+        if not comments:
+            continue
+        final = comments[-1]
+        before = calls[:calls.index(final)]
+        issue_result = next((call.get("result") for call in before
+                             if call.get("name") in {"read_issue", "issues_read"}), "")
+        evidence = [{"tool": call.get("name"), "input": call.get("input"), "result": call.get("result", "")}
+                    for call in before]
+        comment = str((final.get("input") or {}).get("body") or "")
+        items.append((str(lines[0]["run_id"]), None,
+                      {"issue": issue_result, "evidence": evidence}, comment))
+    return items
 
 
 if __name__ == "__main__":
