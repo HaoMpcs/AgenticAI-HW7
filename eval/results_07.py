@@ -33,7 +33,12 @@ from pathlib import Path
 from harness import LAB, ROOT
 from harness import switches as switch_board
 from harness.formats import UNFINISHED
+from harness.roles import tool_for
+from harness.tasks import end_state, load_tasks, read_subset
 from harness.trace import read_trace
+from harness.tracker import Tracker
+from eval.grounded import check
+from eval.metrics import metrics
 
 
 def finished_runs(way: str, switches: dict | None = None, root: Path = ROOT,
@@ -80,8 +85,96 @@ def main(argv=None) -> int:
     p.add_argument("--scripted", action="store_true",
                    help="the runs on a scripted model, to test this script for free: writes "
                         "results/scripted_<arm>.jsonl, which the checker never reads")
-    p.parse_args(argv)
-    raise NotImplementedError("Part B, task 1")
+    args = p.parse_args(argv)
+    switches = _switches(args.switch)
+    tasks = {task.id: task for task in load_tasks(args.tasks)}
+    subset = set(read_subset(args.subset))
+    unknown = subset - set(tasks)
+    if unknown:
+        raise SystemExit(f"subset names unknown tasks: {', '.join(sorted(unknown))}")
+
+    tracker = Tracker(flaky=False, readback_fail=False)
+    rows = []
+    for lines in finished_runs(args.way, switches, scripted=args.scripted):
+        start, end = lines[0], lines[-1]
+        task_id = str(start.get("task"))
+        if task_id not in subset:
+            continue
+        task = tasks[task_id]
+        run_id = str(start["run_id"])
+        state = end_state(tracker, run_id, task)
+        grounded = check(task, state)
+        run_metrics = metrics(lines, task)
+        totals = end.get("totals") or {}
+        rows.append({
+            "arm": args.arm,
+            "way": args.way,
+            "switches": start.get("switches") or {},
+            "run_id": run_id,
+            "task": task.id,
+            "stratum": task.stratum,
+            "sweep": int(start.get("sweep") or 0),
+            "passed": grounded["passed"],
+            "facts": {"present": sum(v == "present" for v in grounded["facts"].values()),
+                      "total": len(grounded["facts"])},
+            "measure": _measure(args.claim, lines, run_metrics, state, task, run_id),
+            "tokens": int(totals.get("total_tokens") or 0),
+            "cost_usd": float(totals.get("cost_usd") or 0.0),
+            "wall_clock_s": float(end.get("elapsed_s") or 0.0),
+            "metrics": run_metrics,
+        })
+
+    rows.sort(key=lambda row: (row["sweep"], row["task"], row["run_id"]))
+    destination = ROOT / "results" / (f"scripted_{args.arm}.jsonl" if args.scripted else f"{args.arm}.jsonl")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
+    print(f"wrote {len(rows)} runs to {destination.relative_to(ROOT)}")
+    return 0
+
+
+def _switches(items: list[str]) -> dict:
+    names = {"FLAKY_WRITES": "flaky_writes", "READBACK_FAIL": "readback_fail",
+             "KEY_MODE": "key_mode", "VERIFY": "verify", "TOOL_EXAMPLES": "tool_examples"}
+    out = {}
+    for item in items:
+        if "=" not in item:
+            raise SystemExit(f"--switch needs NAME=VALUE, not {item!r}")
+        name, value = item.split("=", 1)
+        key = names.get(name.upper(), name.lower())
+        lowered = value.strip().lower()
+        out[key] = lowered in {"1", "true", "yes", "on"} if key in {"flaky_writes", "readback_fail"} else lowered
+    return out
+
+
+def _measure(claim: str, lines: list[dict], run_metrics: dict, state: dict, task, run_id: str):
+    end = lines[-1]
+    if claim == "tokens":
+        return int((end.get("totals") or {}).get("total_tokens") or 0)
+    if claim == "plan":
+        return run_metrics["repeats"]
+    if claim == "split":
+        return 100 if check(task, state)["passed"] else 0
+    if claim == "checkpoint":
+        issue_state = state[int(task.issues[0])]
+        return max(0, len(issue_state.get("comments") or []) - 1) + max(0, len(issue_state.get("prs") or []) - 1)
+    if claim == "examples":
+        wasted = 0
+        search_name = tool_for("search")
+        for record in call_record(run_id):
+            if record.get("outcome") in {"rejected", "error", "protocol"}:
+                wasted += 1
+                continue
+            result = record.get("result")
+            if record.get("tool") == search_name or record.get("name") == search_name:
+                if isinstance(result, str):
+                    try:
+                        result = json.loads(result)
+                    except json.JSONDecodeError:
+                        result = {}
+                if isinstance(result, dict) and result.get("count") == 0:
+                    wasted += 1
+        return wasted
+    raise ValueError(f"unknown claim {claim}")
 
 
 if __name__ == "__main__":
