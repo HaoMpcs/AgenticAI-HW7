@@ -57,4 +57,63 @@ def canonical(value) -> str:
 
 
 def metrics(lines: list[dict], task) -> dict:
-    raise NotImplementedError("Part B, task 4")
+    reference = task.reference if hasattr(task, "reference") else task["reference"]
+    calls = [line for line in lines if line.get("type") == "tool_call"]
+    expected = set(reference["tools"])
+    used = {call["name"] for call in calls}
+
+    seen: set[tuple[str, str]] = set()
+    repeats = 0
+    for call in calls:
+        key = (call["name"], canonical(call.get("input")))
+        repeats += key in seen
+        seen.add(key)
+
+    comments = [call for call in calls if call["name"] in COMMENT_WRITES]
+    final_comment = str((comments[-1].get("input") or {}).get("body") or "") if comments else ""
+    orphans = 0
+    for index, call in enumerate(calls):
+        if call["name"] in WRITES:
+            continue
+        identifiers = _identifiers(call)
+        later = " ".join(canonical(item.get("input")) for item in calls[index + 1:])
+        later = f"{later} {final_comment}"
+        if not any(_appears(identifier, later) for identifier in identifiers):
+            orphans += 1
+
+    ends = [line for line in lines if line.get("type") == "run_end"]
+    end = ends[-1] if ends else {}
+    totals = end.get("totals") or {}
+    return {
+        "step_count": len(calls) - int(reference["calls"]),
+        "precision": len(used & expected) / len(used) if used else None,
+        "recall": len(used & expected) / len(expected) if expected else 1.0,
+        "repeats": repeats,
+        "orphans": orphans,
+        "no_tools": not calls,
+        "cost_usd": float(totals.get("cost_usd") or 0.0),
+        "latency_s": float(end.get("elapsed_s") or 0.0),
+    }
+
+
+def _identifiers(call: dict) -> list[str]:
+    paths = [str(path) for path in call.get("paths") or [] if path]
+    if paths:
+        return paths
+    identifiers = []
+    for value in (call.get("input") or {}).values():
+        if isinstance(value, (list, tuple)):
+            identifiers.extend(str(item) for item in value if item is not None)
+        elif value is not None and not isinstance(value, dict):
+            identifiers.append(str(value))
+    return identifiers
+
+
+def _appears(identifier: str, text: str) -> bool:
+    identifier, text = identifier.lower(), text.lower()
+    if len(identifier) < 3:
+        return False
+    if identifier in text:
+        return True
+    name = identifier.rsplit("/", 1)[-1]
+    return "/" in identifier and len(name) >= 3 and name in text
