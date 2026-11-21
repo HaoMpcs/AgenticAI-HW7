@@ -3,6 +3,7 @@ import unittest
 from harness.tasks import load_task
 from harness.trace import read_trace
 from eval.metrics import metrics
+from eval.judge import CoinJudge, bootstrap, correct, rates
 from eval.stats import interval, margin, pass_at_k, pass_hat_k, spread
 
 
@@ -38,6 +39,16 @@ class EvaluationMathTests(unittest.TestCase):
         self.assertAlmostEqual(got["recall"], 1.0)
         self.assertEqual(got["repeats"], 1)
         self.assertEqual(got["orphans"], 1)
+
+    def test_judge_rates_and_correction(self):
+        labels = {"a": "pass", "b": "pass", "c": "fail", "d": "fail"}
+        verdicts = {"a": "pass", "b": "fail", "c": "fail", "d": "fail"}
+        self.assertEqual(rates(verdicts, labels), (0.5, 1.0))
+        self.assertAlmostEqual(correct(0.7, 0.8, 0.9), 6 / 7)
+        low, high = bootstrap(verdicts, labels, 0.7, resamples=2000, seed=7)
+        self.assertLessEqual(low, high)
+        with self.assertRaises(CoinJudge):
+            correct(0.5, 0.55, 0.45)
 
 
 if __name__ == "__main__":

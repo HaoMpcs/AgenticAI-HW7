@@ -25,6 +25,7 @@ The checker calls `correct`, `rates` and `bootstrap` on cases of its own, and
 from __future__ import annotations
 
 import json  # noqa: F401
+import random
 from pathlib import Path
 
 from harness import ROOT
@@ -44,14 +45,21 @@ def correct(p: float, tpr: float, tnr: float) -> float:
     """The share you would pass, labelling by hand, from the judge's pass rate p on
     outputs nobody labelled: (p + TNR - 1) / (TPR + TNR - 1) (slide 44), clipped to
     0 to 1. Raises CoinJudge when TPR + TNR is within 0.1 of 1."""
-    raise NotImplementedError("Part D, task 5")
+    denominator = tpr + tnr - 1
+    if abs(denominator) <= 0.1:
+        raise CoinJudge("TPR + TNR is too close to 1")
+    return min(1.0, max(0.0, (p + tnr - 1) / denominator))
 
 
 def rates(verdicts: dict[str, str], labels: dict[str, str]) -> tuple[float, float]:
     """(TPR, TNR) of the judge's verdicts against your labels, each "pass" or "fail",
     on the items both cover (slide 43): TPR is the share of the labelled passes the
     judge passed, TNR the share of the labelled fails it failed."""
-    raise NotImplementedError("Part D, task 4")
+    positives = [item for item, label in labels.items() if label == "pass" and item in verdicts]
+    negatives = [item for item, label in labels.items() if label == "fail" and item in verdicts]
+    tpr = sum(verdicts[item] == "pass" for item in positives) / len(positives) if positives else 0.0
+    tnr = sum(verdicts[item] == "fail" for item in negatives) / len(negatives) if negatives else 0.0
+    return tpr, tnr
 
 
 def bootstrap(verdicts: dict[str, str], labels: dict[str, str], p: float,
@@ -59,7 +67,26 @@ def bootstrap(verdicts: dict[str, str], labels: dict[str, str], p: float,
     """The middle 95% of the corrected rate over resamples of the test items, drawn
     with replacement, as many as there are, each time recomputing TPR and TNR
     (slide 44). A resample on which the judge is a coin is left out."""
-    raise NotImplementedError("Part D, task 5")
+    items = [item for item in labels if item in verdicts]
+    rng = random.Random(seed)
+    corrected = []
+    for _ in range(resamples):
+        draw = [rng.choice(items) for _ in items]
+        positives = [item for item in draw if labels[item] == "pass"]
+        negatives = [item for item in draw if labels[item] == "fail"]
+        if not positives or not negatives:
+            continue
+        tpr = sum(verdicts[item] == "pass" for item in positives) / len(positives)
+        tnr = sum(verdicts[item] == "fail" for item in negatives) / len(negatives)
+        try:
+            corrected.append(correct(p, tpr, tnr))
+        except CoinJudge:
+            continue
+    if not corrected:
+        return None, None
+    corrected.sort()
+    last = len(corrected) - 1
+    return corrected[int(0.025 * last)], corrected[int(0.975 * last)]
 
 
 def load_outputs(root: Path = ROOT) -> dict[str, dict]:
