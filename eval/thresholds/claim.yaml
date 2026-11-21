@@ -1,0 +1,19 @@
+claim: examples
+arm_a: {way: planned, switches: {}}
+arm_b: {way: planned, switches: {tool_examples: "off"}}
+measure: wasted
+gain: B - A
+sweeps: 5
+s_a: 1.14564392373896
+s_b: 1.192424001771182
+delta: 1.0
+n_needed: 22
+price_usd: 2.314136
+bar: 0.0
+group_floor: -0.5
+k: 3
+prediction:
+  arm: A
+  by: 1.0
+  stratum: adversarial
+  why: "Examples should most help on adversarial tasks whose safe parameters and permitted writes are easy to misread."
