@@ -1,0 +1,9 @@
+# Tool examples claim: two tasks from each stratum.
+g01
+g04
+g10
+g13
+g15
+g19
+g23
+g25
